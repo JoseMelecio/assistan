@@ -1,0 +1,61 @@
+# Pipeline evidence (local only — not committed)
+.assistant/
+
+# PHP / Laravel
+/vendor/
+/node_modules/
+.env
+.env.*
+!.env.example
+*.log
+*.cache
+/storage/*.key
+/public/hot
+/public/storage
+/bootstrap/cache/*.php
+.phpunit.result.cache
+.phpunit.cache/
+/_ide_helper*.php
+.php-cs-fixer.cache
+.php_cs.cache
+
+# Composer
+composer.phar
+
+# Node / npm / Yarn / pnpm
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+
+# JetBrains IDEs (PhpStorm, WebStorm, IntelliJ, etc.)
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+.idea_modules/
+
+# VS Code
+.vscode/
+*.code-workspace
+.history/
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Temporary files
+*.swp
+*.swo
+*~
+*.tmp
+*.bak

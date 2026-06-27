@@ -1,0 +1,22 @@
+{
+  "name": "assistant",
+  "version": "0.1.0",
+  "description": "A multi-agent, ticket-to-PR development pipeline. Orchestrates specialized agents that take an implementation brief from ticket authoring through planning, coding, review, testing, quality gating, and PR publication.",
+  "author": {
+    "name": "José Melecio",
+    "url": "https://github.com/jmeleciocp"
+  },
+  "repository": "https://github.com/jmeleciocp/assistant",
+  "license": "MIT",
+  "keywords": [
+    "pipeline",
+    "multi-agent",
+    "ticket",
+    "pull-request",
+    "automation",
+    "code-review",
+    "testing",
+    "ci",
+    "workflow"
+  ]
+}

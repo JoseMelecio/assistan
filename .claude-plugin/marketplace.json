@@ -1,0 +1,13 @@
+{
+  "name": "assistant-dev",
+  "owner": {
+    "name": "José Melecio"
+  },
+  "plugins": [
+    {
+      "name": "assistant",
+      "source": "./",
+      "description": "Multi-agent ticket-to-PR pipeline. Specialized agents handle ticket authoring, planning, implementation, review, test generation, quality gating, and PR publication — all driven by Gherkin acceptance criteria as a shared contract."
+    }
+  ]
+}
