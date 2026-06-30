@@ -40,10 +40,27 @@ If the Atlassian MCP is not available, stop immediately and tell the user:
 
 Before invoking any agent:
 
-1. Run `git rev-parse --abbrev-ref HEAD` to capture the current branch. This is the **base branch** — the branch the PR will target. Store it; you will pass it to Smithers.
-2. Derive a feature branch name from the ticket id: lowercase it and prefix with `feature/` (e.g. `DEV-12` → `feature/dev-12`).
-3. If the feature branch already exists locally, check it out. Otherwise create it from the base branch captured in step 1 and check it out.
-4. Report the base branch and feature branch name to the user before continuing.
+1. **Determine the base branch** in this priority order:
+   a. Read the project's `CLAUDE.md` and look for a line that declares the base branch (e.g. `Base branch: development`, `base_branch: development`, or similar). Extract the value.
+   b. If not declared in `CLAUDE.md`, default to `development`.
+   Store this value as the **base branch** — every feature branch is cut from it, and every PR targets it.
+
+2. Ensure the base branch is up to date:
+   ```
+   git fetch origin
+   git checkout <base-branch>
+   git pull origin <base-branch>
+   ```
+
+3. Derive a feature branch name from the ticket id: lowercase it and prefix with `feature/` (e.g. `DEV-12` → `feature/dev-12`).
+
+4. Create the feature branch from the base branch (or check it out if it already exists):
+   ```
+   git checkout -b <feature-branch>
+   ```
+   If the branch already exists: `git checkout <feature-branch>`
+
+5. Report the base branch and feature branch name to the user before continuing.
 
 ---
 
@@ -181,7 +198,8 @@ Announce each stage as you invoke it. After each agent returns, report its verdi
 
 ```
 Ticket:      $ARGUMENTS
-Branch:      feature/<ticket-id>
+Base branch: <base-branch>
+Branch:      feature/<ticket-id>  →  <base-branch>
 Implemented: <one-line summary of changes>
 Review:      PASS / CHANGES REQUESTED (N iterations)
 Gate:        PASS / FAIL (N iterations)
