@@ -40,9 +40,10 @@ If the Atlassian MCP is not available, stop immediately and tell the user:
 
 Before invoking any agent:
 
-1. Derive a branch name from the ticket id: lowercase it and prefix with `feature/` (e.g. `DEV-12` → `feature/dev-12`).
-2. If the branch already exists locally, check it out. Otherwise create it from the current default branch and check it out.
-3. Report the branch name to the user before continuing.
+1. Run `git rev-parse --abbrev-ref HEAD` to capture the current branch. This is the **base branch** — the branch the PR will target. Store it; you will pass it to Smithers.
+2. Derive a feature branch name from the ticket id: lowercase it and prefix with `feature/` (e.g. `DEV-12` → `feature/dev-12`).
+3. If the feature branch already exists locally, check it out. Otherwise create it from the base branch captured in step 1 and check it out.
+4. Report the base branch and feature branch name to the user before continuing.
 
 ---
 
@@ -128,12 +129,15 @@ Invoke the `smithers` agent **only after both Stage C returns `VERDICT: PASS` an
 
 Provide:
 - The ticket identifier.
-- The branch name (from Section 3).
+- The feature branch name (from Section 3).
+- The **base branch** (from Section 3 step 1) — Smithers must use this as `--base` when creating the PR.
 - The acceptance criteria (from Stage A).
 - Kirk's final change summary.
 - Bender's evidence file path.
 
-Smithers commits all staged changes, pushes the `feature/<TICKET-ID>` branch, and opens a pull request via `gh`. He returns the PR URL and branch name.
+Smithers commits all staged changes, pushes the feature branch, and opens a pull request via `gh` targeting the base branch. He returns the PR URL and branch name.
+
+**If Smithers does not return a PR URL, stop immediately. Do not proceed to Stage G.**
 
 **CAPTURE:** the PR URL from Smithers.
 
