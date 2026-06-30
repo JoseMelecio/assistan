@@ -144,13 +144,13 @@ Smithers commits all staged changes, pushes the `feature/<TICKET-ID>` branch, an
 After Smithers returns a PR URL, using the connected Atlassian Jira MCP tools on the main thread:
 
 1. Look up the valid workflow transitions for `$ARGUMENTS`.
-2. Select the transition whose name most closely matches "In Review" (case-insensitive; exact match preferred).
+2. Select the transition whose name most closely matches "Revision" (case-insensitive; exact match preferred).
 3. Apply that transition to the issue.
 
 If the transition succeeds, record the result. If the Atlassian MCP is unavailable at this point, print:
 ```
 [Jira transition skipped — Atlassian MCP not available]
-Would transition: $ARGUMENTS → "In Review"
+Would transition: $ARGUMENTS → "Revision"
 ```
 
 ---
@@ -182,5 +182,5 @@ Implemented: <one-line summary of changes>
 Review:      PASS / CHANGES REQUESTED (N iterations)
 Gate:        PASS / FAIL (N iterations)
 PR:          <URL or "not opened">
-Jira:        transitioned to "In Review" | [skipped]
+Jira:        transitioned to "Revision" | [skipped]
 ```
