@@ -13,6 +13,8 @@ Run the full development pipeline for an existing Jira ticket.
 /assistant:execute-task DEV-12
 ```
 
+Each run works in its own isolated `git worktree` (see Section 3), so it's safe to invoke this command for several tickets back to back or in parallel — each pipeline gets its own directory and branch and cannot clobber another run's files or checked-out branch.
+
 ---
 
 ## 1. PURPOSE & INPUT
@@ -45,28 +47,37 @@ Before invoking any agent:
    b. If not declared in `CLAUDE.md`, default to `development`.
    Store this value as the **base branch** — every feature branch is cut from it, and every PR targets it.
 
-2. Ensure the base branch is up to date:
+2. From the current checkout (the directory the command was invoked in), make sure the base branch actually exists and is current:
    ```
    git fetch origin
-   git checkout <base-branch>
-   git pull origin <base-branch>
    ```
+   - If `<base-branch>` exists locally: `git checkout <base-branch> && git pull origin <base-branch>`.
+   - If `<base-branch>` does not exist locally but exists on `origin`: `git checkout -b <base-branch> origin/<base-branch>`.
+   - If `<base-branch>` does not exist locally **nor** on `origin`: **stop** and ask the user whether to create it (and from what starting point) or whether the base-branch configuration is wrong. Never silently invent a base branch — a wrong guess here means every feature branch and PR targets the wrong place.
 
 3. Derive a feature branch name from the ticket id: lowercase it and prefix with `feature/` (e.g. `DEV-12` → `feature/dev-12`).
 
-4. Create the feature branch from the base branch (or check it out if it already exists):
+4. **Create an isolated git worktree for this ticket**, instead of checking the feature branch out in the current directory. This keeps the current checkout untouched (still sitting on the base branch) and lets multiple tickets be worked **in parallel** without one pipeline's checkout stepping on another's:
    ```
-   git checkout -b <feature-branch>
+   git worktree add ../<repo-folder-name>-<feature-branch-slug> -b <feature-branch> <base-branch>
    ```
-   If the branch already exists: `git checkout <feature-branch>`
+   - `<repo-folder-name>` is the name of the current repository directory.
+   - `<feature-branch-slug>` is the feature branch name with every `/` replaced by `-` (e.g. `feature/dev-12` → `feature-dev-12`), so the sibling directory name is filesystem-safe.
+   - If the feature branch already exists (a previous run on this ticket was interrupted), drop `-b` and reuse it: `git worktree add ../<repo-folder-name>-<feature-branch-slug> <feature-branch>`.
+   - If a worktree at that path already exists, reuse it as-is — do not create a duplicate or delete it.
+   - Store the resulting absolute path as **WORKTREE_PATH**. Every stage from here on operates inside `WORKTREE_PATH`, never in the original checkout.
 
-5. Report the base branch and feature branch name to the user before continuing.
+5. Report the base branch, feature branch, and `WORKTREE_PATH` to the user before continuing.
+
+**Running multiple tickets in parallel**: because step 4 gives each ticket its own worktree and branch, `/execute-task` can be invoked for several tickets at the same time with no risk of one run's file writes or branch checkout clobbering another's. Conflicts, if any, only ever show up later as ordinary Git merge conflicts when each PR is merged — never as corrupted local state. The one shared resource is the base branch itself (step 2), which is only ever read from (checked out and pulled) before any worktree is created, never written to directly.
 
 ---
 
 ## 4. PIPELINE
 
 Invoke each agent via the Task tool in the order below. Pass the captured outputs forward explicitly — agents do not share memory.
+
+**Every invocation below must explicitly tell the agent its working directory is `WORKTREE_PATH` (from Section 3)** — e.g. "Your working directory for this task is `<WORKTREE_PATH>`. Resolve all file paths, and run all Bash/git commands, relative to that directory — do not touch the original checkout." Agents do not share process state with the orchestrator, so this must be repeated in every stage's prompt, not assumed from context.
 
 ---
 
@@ -148,11 +159,14 @@ Provide:
 - The ticket identifier.
 - The feature branch name (from Section 3).
 - The **base branch** (from Section 3 step 1) — Smithers must use this as `--base` when creating the PR.
+- The **`WORKTREE_PATH`** (from Section 3 step 4) — Smithers must `cd` there before running any `git`/`gh` command; the commit, push, and PR must come from the ticket's worktree, not the original checkout.
 - The acceptance criteria (from Stage A).
 - Kirk's final change summary.
 - Bender's evidence file path.
 
 Smithers commits all staged changes, pushes the feature branch, and opens a pull request via `gh` targeting the base branch. He returns the PR URL and branch name.
+
+Do **not** run `git worktree remove` after this stage. The worktree stays in place after the PR is published — `/pr-review` needs it to address human review comments on the same branch, and removing it prematurely would force the next run to recreate it from scratch. Mention `WORKTREE_PATH` in the final summary so the user knows where it lives and can remove it manually (`git worktree remove <path>`) once the PR is merged.
 
 **If Smithers does not return a PR URL, stop immediately. Do not proceed to Stage G.**
 
@@ -182,10 +196,12 @@ Both correction loops (Skinner → Kirk and Bender → Kirk) share a **maximum o
 
 If the pipeline is still not passing after the 3rd attempt:
 - **Do not open a PR.**
+- **Do not remove the worktree.** Leave `WORKTREE_PATH` in place so the user can inspect or continue the work by hand.
 - Stop and report to the user:
   - Which stage is failing and why.
   - The latest Skinner findings or Bender evidence.
   - The list of files involved.
+  - `WORKTREE_PATH` and the feature branch name, so the user can pick up manually.
   - A recommendation for manual intervention.
 
 ---
@@ -200,6 +216,7 @@ Announce each stage as you invoke it. After each agent returns, report its verdi
 Ticket:      $ARGUMENTS
 Base branch: <base-branch>
 Branch:      feature/<ticket-id>  →  <base-branch>
+Worktree:    <WORKTREE_PATH> (left in place — safe to remove after the PR merges)
 Implemented: <one-line summary of changes>
 Review:      PASS / CHANGES REQUESTED (N iterations)
 Gate:        PASS / FAIL (N iterations)

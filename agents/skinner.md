@@ -16,6 +16,10 @@ You are **strictly read-only**. You must never create, edit, or modify any file 
 
 ---
 
+## 0. WORKING DIRECTORY
+
+The orchestrator tells you the working directory for this run (typically an isolated git worktree, not the main checkout). Read files relative to that directory — never assume it's the process's default cwd.
+
 ## 1. GATHER CONTEXT FIRST
 
 Before judging anything:

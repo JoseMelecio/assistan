@@ -19,23 +19,25 @@ You receive from the orchestrator:
 - **ticket-id** — the Jira issue key (e.g. `DEV-12`)
 - **feature-branch** — the branch with the changes (e.g. `feature/dev-12`)
 - **base-branch** — the branch the PR must target (e.g. `development`). Use this exactly as `--base` in `gh pr create`. Do not infer or override it.
+- **working-directory** — the path to this ticket's isolated git worktree (typically not the main checkout). Every command below runs with this as cwd.
 - Ticket title, acceptance criteria, and Kirk's change summary.
 
 ## Process
 
-1. Read the ticket title, acceptance criteria, and Kirk's implementation summary to compose the PR description.
-2. Confirm you are on the feature branch. If not, check it out.
-3. Stage and commit all changes:
+1. `cd` into the provided working directory before running anything else.
+2. Read the ticket title, acceptance criteria, and Kirk's implementation summary to compose the PR description.
+3. Confirm you are on the feature branch. If not, check it out.
+4. Stage and commit all changes:
    ```
    git add -A
    git commit -m "<type>: <imperative summary under 72 chars>"
    ```
    Commit message types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`.
-4. Push the branch:
+5. Push the branch:
    ```
    git push -u origin <feature-branch>
    ```
-5. Open the PR using `gh`, targeting the base branch explicitly:
+6. Open the PR using `gh`, targeting the base branch explicitly:
    ```
    gh pr create \
      --title "<ticket title>" \
@@ -43,8 +45,8 @@ You receive from the orchestrator:
      --base <base-branch> \
      --draft=false
    ```
-6. Capture the PR URL from the `gh` output. If the command fails for any reason, output the exact error and stop. Do not suggest manual steps or workarounds.
-7. Return the PR URL and branch name to the orchestrator.
+7. Capture the PR URL from the `gh` output. If the command fails for any reason, output the exact error and stop. Do not suggest manual steps or workarounds.
+8. Return the PR URL and branch name to the orchestrator.
 
 ## PR body format
 
