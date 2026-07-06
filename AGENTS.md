@@ -9,6 +9,7 @@ This document covers the design rationale for each agent: why this character, wh
 | Agent file | Character | Why this character |
 |---|---|---|
 | `agents/lisa.md` | **Lisa** (Simpson) | Lisa is the most principled, methodical member of any group — she does the homework others skip. A ticket author who produces rigorous Gherkin criteria before a single line of code is written is exactly that person. |
+| `agents/hermes.md` | **Hermes Conrad** (Futurama) | Hermes is a Grade 36 bureaucrat obsessed with forms, stamps, and proper procedure — he double-checks every document that crosses his desk before it's allowed to proceed. An agent that takes a ticket someone else filed however they felt like it, and re-files it to spec without changing its substance, is exactly that instinct. |
 | `agents/spock.md` | **Spock** (Star Trek) | Pure logic, zero assumption. Spock reads the evidence (the repo, the CLAUDE.md), builds a plan grounded only in what he observes, and explicitly flags what he doesn't know. No guessing. |
 | `agents/kirk.md` | **Kirk** (Star Trek) | Decisive, action-oriented, gets the job done under pressure. Kirk takes the plan and executes — quickly, pragmatically, without over-engineering. |
 | `agents/skinner.md` | **Skinner** (The Simpsons / Pavlov) | Seymour Skinner has a critical eye and never misses a rule violation. He reviews without sympathy but without malice — he reports what he sees and leaves it to others to fix. |
@@ -23,23 +24,23 @@ This document covers the design rationale for each agent: why this character, wh
 
 | Model | Agents | Why |
 |---|---|---|
-| `claude-sonnet-4-6` | lisa, spock, kirk, skinner, leela, martin | These agents must reason about code, understand context, and make non-trivial judgments. Sonnet is the right balance of capability and cost. |
+| `claude-sonnet-4-6` | lisa, hermes, spock, kirk, skinner, leela, martin | These agents must reason about code, understand context, and make non-trivial judgments. Sonnet is the right balance of capability and cost. |
 | `claude-haiku-4-5-20251001` | bender, smithers | These agents are purely mechanical: run a shell command, capture output, commit, push. No reasoning required — Haiku is fast and cheap. |
 
 ---
 
 ## The acceptance-criteria contract
 
-The pipeline's key architectural decision is that **Lisa's Gherkin output is the shared contract**:
+The pipeline's key architectural decision is that **Lisa's Gherkin output is the shared contract** — and it doesn't matter whether Lisa wrote it from scratch or Hermes normalized someone else's ticket into the same shape; every downstream agent consumes it identically:
 
 ```
-lisa (writes criteria)
-  → spock (plans against criteria)
-  → kirk (implements to satisfy criteria)
-  → skinner (verifies criteria are met correctly)
-  → leela (derives tests FROM criteria)
-  → bender (runs tests that prove criteria)
-  → smithers (ships the evidence)
+lisa (writes criteria from a brief)          ─┐
+hermes (normalizes someone else's ticket)     ─┴─→ spock (plans against criteria)
+                                                     → kirk (implements to satisfy criteria)
+                                                     → skinner (verifies criteria are met correctly)
+                                                     → leela (derives tests FROM criteria)
+                                                     → bender (runs tests that prove criteria)
+                                                     → smithers (ships the evidence)
 ```
 
 This means no agent needs to re-derive intent. Each agent receives the same criteria and interprets them for its role.
@@ -66,6 +67,7 @@ The pipeline addresses each of these pain points in order. The character names w
 | Agent | Tools | Why |
 |---|---|---|
 | lisa | Read, Grep, Glob | Needs to read the brief; no writes needed |
+| hermes | Read, Grep, Glob | Needs to read the ticket content passed to it and CLAUDE.md for context; never edits code, and never calls Jira itself — the `normalize-ticket` command handles that |
 | spock | Read, Grep, Glob | Read-only by design; must not touch the repo |
 | kirk | Read, Write, Edit, Bash, Grep, Glob | Full implementation access; Bash for running generators or checking output |
 | skinner | Read, Grep, Glob | Read-only by design; must not touch the repo |

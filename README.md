@@ -7,12 +7,13 @@ A Claude Code plugin that packages a **multi-agent, ticket-to-PR development pip
 ## What it does
 
 ```
-brief.md
-   │
-   ▼
-[lisa]      Reads the brief → writes a ticket with Gherkin acceptance criteria
-   │
-   ▼
+brief.md                       existing Jira ticket (from a teammate / another AI)
+   │                                    │
+   ▼                                    ▼
+[lisa]      Writes a new ticket    [hermes]   Normalizes it into the same
+   │         with Gherkin AC          │        Gherkin format lisa produces
+   └──────────────┬───────────────────┘
+                   ▼
 [spock]     Explores the repo + CLAUDE.md → produces an implementation plan
    │
    ▼
@@ -31,7 +32,7 @@ brief.md
 [smithers]  Commits, pushes, opens the PR, transitions the Jira ticket
 ```
 
-The Gherkin acceptance criteria produced by **Lisa** in step one are the **contract** that flows through the whole pipeline: Spock plans against them, Kirk codes to them, Leela derives tests from them, and Bender's gate verifies them.
+The Gherkin acceptance criteria produced by **Lisa** (or normalized by **Hermes**, for tickets someone else already wrote) are the **contract** that flows through the whole pipeline: Spock plans against them, Kirk codes to them, Leela derives tests from them, and Bender's gate verifies them.
 
 ---
 
@@ -51,6 +52,7 @@ Commands are namespaced under `assistant`:
 | Command | Description |
 |---|---|
 | `/assistant:create-task [path-to-brief]` | Run the full pipeline on an implementation brief |
+| `/assistant:normalize-ticket [TICKET-ID]` | Rewrite a ticket someone else already filed into Gherkin format, then stop for human review |
 | `/assistant:pr-review [pr-number]` | Address human review comments on an open PR |
 
 ---
@@ -69,6 +71,7 @@ Commands are namespaced under `assistant`:
 | Agent | Character | Role |
 |---|---|---|
 | `lisa` | Lisa | Ticket author — reads the brief and writes the specification |
+| `hermes` | Hermes | Ticket compliance officer — normalizes tickets written by someone else into the pipeline's Gherkin format |
 | `spock` | Spock | Planner — explores the repo and produces a logical implementation plan |
 | `kirk` | Kirk | Implementer — writes the code |
 | `skinner` | Skinner | Reviewer — inspects the diff for issues, never edits |
@@ -84,6 +87,7 @@ Commands are namespaced under `assistant`:
 Each character is a mnemonic for their role's personality:
 
 - **Lisa** — methodical, principled, writes things down properly.
+- **Hermes** — a bureaucrat's bureaucrat; nothing passes through improperly filed, and he never touches what he can't verify.
 - **Spock** — pure logic, evidence-based, never guesses.
 - **Kirk** — decisive, gets things done, moves fast.
 - **Skinner** — critical eye, sees what others miss, reports without fixing.
