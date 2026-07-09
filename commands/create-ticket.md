@@ -36,6 +36,12 @@ Determine the target Jira project key in this priority order:
 
 ---
 
+## 2a. RESOLVE JIRA LABELS
+
+Read the same `CLAUDE.md` and look for a line that declares one or more mandatory Jira labels (e.g. `Jira label: POS-API`, `Jira labels: POS-API, backend`, or similar wording). If found, every label listed there **must** be attached to the issue created in Section 5 — this is not optional and does not require user confirmation. If no such line exists, create the issue without labels (unless the user's brief requests specific ones).
+
+---
+
 ## 3. INVOKE LISA — Ticket authoring
 
 Invoke the `lisa` agent with the implementation brief (file path or pasted text).
@@ -56,6 +62,7 @@ Before creating anything in Jira, output a short confirmation message:
 
 - The resolved project key
 - The ticket title (from Lisa's output)
+- The mandatory labels resolved in Section 2a, if any
 
 Ask: "Shall I create this ticket in **`<KEY>`**?" and wait for the user's confirmation. Only proceed to step 5 after receiving confirmation.
 
@@ -65,11 +72,12 @@ Ask: "Shall I create this ticket in **`<KEY>`**?" and wait for the user's confir
 
 Using the connected Atlassian Jira MCP tools available on the main thread:
 
-1. If needed, look up the valid issue types for the project to find "Story" (or the closest equivalent).
+1. If needed, look up the valid issue types for the project to find "Story" (or the closest equivalent — note some Jira instances use localized names, e.g. `Historia`).
 2. Create the issue in the resolved project with:
    - Issue type: Story (or closest equivalent)
    - Summary: the ticket title from Lisa
    - Description: Lisa's full markdown output
+   - Labels: the mandatory labels resolved in Section 2a, if any (pass them as the issue's `labels` field)
 3. From the response, extract the issue key (e.g. `DEV-12`) and derive the browse URL. Use the `self` URL or the Atlassian base URL from the response to construct `<baseUrl>/browse/<ISSUE-KEY>`. Do **not** hardcode any base URL.
 
 If the Atlassian MCP is not available, output Lisa's full markdown ticket and note:
@@ -91,8 +99,9 @@ Report to the user:
 
 1. **Ticket created:**
    ```
-   KEY:  <ISSUE-KEY>
-   URL:  <direct browse link>
+   KEY:     <ISSUE-KEY>
+   URL:     <direct browse link>
+   Labels:  <applied labels, or "none">
    ```
 2. **Acceptance criteria summary** — a short bulleted list of the Gherkin scenarios Lisa produced.
 3. **Next step** — tell the user to review and adjust the ticket at the link above, and that when satisfied they can run:

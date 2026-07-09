@@ -37,10 +37,10 @@ You receive from the orchestrator:
    ```
    git push -u origin <feature-branch>
    ```
-6. Open the PR using `gh`, targeting the base branch explicitly:
+6. Open the PR using `gh`, targeting the base branch explicitly. The title must always start with the Jira ticket id, followed by an em dash and the ticket title (e.g. `DEV-147 — Fix GenerateQueryJob: Failed on null query result; repair Áreas Geográficas element data`). If the ticket title already starts with the ticket id (case-insensitive), do not duplicate it:
    ```
    gh pr create \
-     --title "<ticket title>" \
+     --title "<ticket-id> — <ticket title>" \
      --body "<PR body (see format below)>" \
      --base <base-branch> \
      --draft=false

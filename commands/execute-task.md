@@ -13,7 +13,7 @@ Run the full development pipeline for an existing Jira ticket.
 /assistant:execute-task DEV-12
 ```
 
-Each run works in its own isolated `git worktree` (see Section 3), so it's safe to invoke this command for several tickets back to back or in parallel — each pipeline gets its own directory and branch and cannot clobber another run's files or checked-out branch.
+Each run works in its own isolated `git worktree` (see Section 4), so it's safe to invoke this command for several tickets back to back or in parallel — each pipeline gets its own directory and branch and cannot clobber another run's files or checked-out branch.
 
 ---
 
@@ -25,7 +25,21 @@ If `$ARGUMENTS` is empty, ask the user to supply a Jira ticket identifier before
 
 ---
 
-## 2. FETCH TICKET FROM JIRA
+## 2. VALIDATE PROJECT KEY
+
+Before fetching anything from Jira, check whether this repo restricts which Jira project it accepts:
+
+1. Read the project's `CLAUDE.md` and look for a line that declares the Jira project (e.g. `Jira project key: MM`, `jira_project: MM`, or similar wording).
+2. If no such line exists, this repo is unrestricted — skip validation and continue to Section 3.
+3. If a project key **is** declared, extract the project prefix from `$ARGUMENTS` (the text before the first `-`, e.g. `MM-42` → `MM`).
+4. Compare the two case-insensitively.
+   - **Match** — continue to Section 3.
+   - **No match** — stop immediately, do not contact Jira, and tell the user:
+     > This repo is restricted to Jira project `<declared-key>` (per `CLAUDE.md`). `$ARGUMENTS` belongs to a different project and will not be processed. Re-run with a `<declared-key>-*` ticket.
+
+---
+
+## 3. FETCH TICKET FROM JIRA
 
 Using the connected Atlassian Jira MCP tools available on the main thread, fetch the live ticket for `$ARGUMENTS`. Extract:
 
@@ -38,7 +52,7 @@ If the Atlassian MCP is not available, stop immediately and tell the user:
 
 ---
 
-## 3. SETUP
+## 4. SETUP
 
 Before invoking any agent:
 
@@ -73,18 +87,18 @@ Before invoking any agent:
 
 ---
 
-## 4. PIPELINE
+## 5. PIPELINE
 
 Invoke each agent via the Task tool in the order below. Pass the captured outputs forward explicitly — agents do not share memory.
 
-**Every invocation below must explicitly tell the agent its working directory is `WORKTREE_PATH` (from Section 3)** — e.g. "Your working directory for this task is `<WORKTREE_PATH>`. Resolve all file paths, and run all Bash/git commands, relative to that directory — do not touch the original checkout." Agents do not share process state with the orchestrator, so this must be repeated in every stage's prompt, not assumed from context.
+**Every invocation below must explicitly tell the agent its working directory is `WORKTREE_PATH` (from Section 4)** — e.g. "Your working directory for this task is `<WORKTREE_PATH>`. Resolve all file paths, and run all Bash/git commands, relative to that directory — do not touch the original checkout." Agents do not share process state with the orchestrator, so this must be repeated in every stage's prompt, not assumed from context.
 
 ---
 
 ### Stage A — Spock: Implementation planning
 
 Invoke the `spock` agent with:
-- The ticket title, description, and full acceptance criteria fetched in step 2.
+- The ticket title, description, and full acceptance criteria fetched in Section 3.
 - Instruction to read the project's `CLAUDE.md`, explore the repository, and produce an ordered implementation plan with each acceptance criterion mapped to concrete steps.
 
 Spock does **not** need to contact Jira — provide the ticket content directly.
@@ -124,7 +138,7 @@ The first output line from Skinner must be one of:
 **If `VERDICT: CHANGES REQUESTED`:**
 - Hand Skinner's findings back to Kirk (Stage B), along with all previous context.
 - Re-run Stage C (Skinner) after Kirk responds.
-- This loop counts against the global retry cap (see Section 5).
+- This loop counts against the global retry cap (see Section 6).
 
 ---
 
@@ -147,7 +161,7 @@ Bender discovers and runs the project's configured lint, static-analysis, and te
 **If `FAIL`:**
 - Hand Bender's error evidence and the failing output back to Kirk (Stage B), along with all previous context.
 - Re-run Stage C (Skinner), Stage D (Leela), and Stage E (Bender) in order, since the code changed.
-- This loop counts against the global retry cap (see Section 5).
+- This loop counts against the global retry cap (see Section 6).
 
 ---
 
@@ -157,9 +171,9 @@ Invoke the `smithers` agent **only after both Stage C returns `VERDICT: PASS` an
 
 Provide:
 - The ticket identifier.
-- The feature branch name (from Section 3).
-- The **base branch** (from Section 3 step 1) — Smithers must use this as `--base` when creating the PR.
-- The **`WORKTREE_PATH`** (from Section 3 step 4) — Smithers must `cd` there before running any `git`/`gh` command; the commit, push, and PR must come from the ticket's worktree, not the original checkout.
+- The feature branch name (from Section 4).
+- The **base branch** (from Section 4 step 1) — Smithers must use this as `--base` when creating the PR.
+- The **`WORKTREE_PATH`** (from Section 4 step 4) — Smithers must `cd` there before running any `git`/`gh` command; the commit, push, and PR must come from the ticket's worktree, not the original checkout.
 - The acceptance criteria (from Stage A).
 - Kirk's final change summary.
 - Bender's evidence file path.
@@ -190,7 +204,7 @@ Would transition: $ARGUMENTS → "Revision"
 
 ---
 
-## 5. CORRECTION LOOPS & RETRY CAP
+## 6. CORRECTION LOOPS & RETRY CAP
 
 Both correction loops (Skinner → Kirk and Bender → Kirk) share a **maximum of 3 correction attempts total** across the entire pipeline run.
 
@@ -206,7 +220,7 @@ If the pipeline is still not passing after the 3rd attempt:
 
 ---
 
-## 6. PROGRESS REPORTING
+## 7. PROGRESS REPORTING
 
 Announce each stage as you invoke it. After each agent returns, report its verdict or outcome in one line before continuing.
 
