@@ -30,6 +30,7 @@ Martin will:
 2. Classify each comment as actionable, informational, or already resolved.
 3. Implement code changes for every actionable comment.
 4. Commit and push the fixes to the PR branch.
+5. Reply to every comment directly on the PR — in-thread for inline comments, as a summary comment for top-level reviews — stating whether the change was applied (and how) or not applied (and why).
 
 ---
 
@@ -39,4 +40,5 @@ Report to the user:
 - A table of comments addressed and changes made.
 - Any comments skipped and why.
 - The commit SHA pushed to the branch.
+- Confirmation that every comment received a reply on GitHub (Martin's output reports N/N replied — flag it to the user if any reply failed).
 - A reminder to re-request review on GitHub after pushing.
