@@ -1,6 +1,6 @@
 {
   "name": "assistant",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A multi-agent, ticket-to-PR development pipeline. Orchestrates specialized agents that take an implementation brief from ticket authoring through planning, coding, review, testing, quality gating, and PR publication.",
   "author": {
     "name": "José Melecio",
