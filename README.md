@@ -15,7 +15,7 @@ brief.md                       existing Jira ticket (from a teammate / another A
    └──────────────┬───────────────────┘
                    ▼
 [spock]     Explores the repo + CLAUDE.md → produces an implementation plan
-   │
+   │         → Jira ticket transitions to "En curso" once work begins
    ▼
 [kirk]      Writes the code following the plan
    │

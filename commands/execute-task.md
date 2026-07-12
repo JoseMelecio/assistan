@@ -87,7 +87,26 @@ Before invoking any agent:
 
 ---
 
-## 5. PIPELINE
+## 5. MARK TICKET AS IN PROGRESS
+
+Now that the ticket has been fetched and the worktree is set up, mark the ticket as started **before** invoking any agent, so the board reflects that work is underway. Using the connected Atlassian Jira MCP tools on the main thread:
+
+1. Look up the valid workflow transitions for `$ARGUMENTS`.
+2. Select the transition whose name most closely matches "En curso" (case-insensitive; exact match preferred; common English equivalents such as "In Progress" are acceptable fallbacks if no "En curso" transition exists).
+3. Apply that transition to the issue.
+
+Handle the outcome gracefully — a failure here must **not** abort the pipeline, since the code work can still proceed:
+- If the transition succeeds, record the result and continue to Section 6.
+- If the ticket is already in "En curso" (the transition is not offered), treat that as success and continue.
+- If the Atlassian MCP is unavailable at this point, print the following and continue:
+  ```
+  [Jira transition skipped — Atlassian MCP not available]
+  Would transition: $ARGUMENTS → "En curso"
+  ```
+
+---
+
+## 6. PIPELINE
 
 Invoke each agent via the Task tool in the order below. Pass the captured outputs forward explicitly — agents do not share memory.
 
@@ -138,7 +157,7 @@ The first output line from Skinner must be one of:
 **If `VERDICT: CHANGES REQUESTED`:**
 - Hand Skinner's findings back to Kirk (Stage B), along with all previous context.
 - Re-run Stage C (Skinner) after Kirk responds.
-- This loop counts against the global retry cap (see Section 6).
+- This loop counts against the global retry cap (see Section 7).
 
 ---
 
@@ -161,7 +180,7 @@ Bender discovers and runs the project's configured lint, static-analysis, and te
 **If `FAIL`:**
 - Hand Bender's error evidence and the failing output back to Kirk (Stage B), along with all previous context.
 - Re-run Stage C (Skinner), Stage D (Leela), and Stage E (Bender) in order, since the code changed.
-- This loop counts against the global retry cap (see Section 6).
+- This loop counts against the global retry cap (see Section 7).
 
 ---
 
@@ -204,7 +223,7 @@ Would transition: $ARGUMENTS → "Revision"
 
 ---
 
-## 6. CORRECTION LOOPS & RETRY CAP
+## 7. CORRECTION LOOPS & RETRY CAP
 
 Both correction loops (Skinner → Kirk and Bender → Kirk) share a **maximum of 3 correction attempts total** across the entire pipeline run.
 
@@ -220,7 +239,7 @@ If the pipeline is still not passing after the 3rd attempt:
 
 ---
 
-## 7. PROGRESS REPORTING
+## 8. PROGRESS REPORTING
 
 Announce each stage as you invoke it. After each agent returns, report its verdict or outcome in one line before continuing.
 
@@ -235,5 +254,6 @@ Implemented: <one-line summary of changes>
 Review:      PASS / CHANGES REQUESTED (N iterations)
 Gate:        PASS / FAIL (N iterations)
 PR:          <URL or "not opened">
-Jira:        transitioned to "Revision" | [skipped]
+Jira start:  transitioned to "En curso" | [skipped]
+Jira end:    transitioned to "Revision" | [skipped]
 ```
