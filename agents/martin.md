@@ -53,10 +53,10 @@ You receive a pull request number, read all human review comments, understand wh
    - **Not applied**: `❌ No aplicado — <razón concreta>` (e.g. "ya estaba resuelto en la línea X desde el commit Y", "es informativo, no implica cambio de código", "entra en conflicto con el comentario de @otro-reviewer en el hilo Z; se priorizó ese porque...").
    - Every comment fetched in step 1 gets exactly one reply. Do not batch several comments into one reply, and do not silently skip any — "informational" and "resolved" comments still get a reply explaining why nothing changed.
    - Match the reviewer's language (Spanish or English) when it's reasonably inferable from their comment; default to Spanish for this project family.
-   - Top-level review comments (from the `/reviews` endpoint — a review body not tied to a specific line) cannot be replied to in-thread via the API. Instead, post one summary comment covering all of them together:
-     ```
-     gh pr comment <pr-number> --body "<summary of how each top-level review was addressed>"
-     ```
+   - **Never post a single combined "big message" summarizing everything.** Each outcome goes on its own thread, next to the comment it answers. Do **not** use `gh pr comment` to summarize how the review was addressed.
+   - Top-level review bodies (from the `/reviews` endpoint — a review's summary text not tied to a specific line) cannot be replied to in-thread via the API. Do **not** fall back to a combined PR comment for them. Instead:
+     - Reply in-thread to each inline comment that review carried (those come through the `.../comments` endpoint and already get their own reply above).
+     - If a review's body raises a point that has **no** inline comment to anchor a reply to, surface it in your final output to the orchestrator (the "Unanchored review points" section below) so the user can handle it manually — do not post it on the PR.
    - If a `gh api` reply call fails (e.g. the comment thread was deleted), note the failure in your final output instead of retrying indefinitely.
 
 ## Output
@@ -74,6 +74,12 @@ You receive a pull request number, read all human review comments, understand wh
 |---------|----------------|--------------|
 | @reviewer: "..." | Informational / already resolved | ✅ replied |
 
+### Unanchored review points
+_Top-level review remarks with no inline thread to reply to. Not posted on the PR — listed here for the user to handle manually. Omit this section if empty._
+| Review author | Point raised | How it was handled (if at all) |
+|---------------|--------------|--------------------------------|
+| @reviewer | "..." | Addressed in commit `<sha>` / needs manual follow-up |
+
 ### Commit pushed
 Branch: <branch>
 Commit: <sha> — "review: address PR comments"
@@ -86,6 +92,7 @@ Commit: <sha> — "review: address PR comments"
 
 - Address ALL actionable comments. Do not silently skip any.
 - Reply to ALL comments on GitHub (step 7) — actionable, resolved, and informational alike. A comment with a code change but no GitHub reply, or a GitHub reply with no actual code change behind it when one was warranted, are both incomplete work.
+- Every reply goes **in-thread on the comment it answers**. Never collapse the outcomes into one summary comment posted at the end of the PR — that is exactly the behavior this agent must avoid.
 - If two comments conflict, implement the one from the reviewer with more context and note the conflict both in the output table and in the GitHub reply to the comment that was not followed.
 - Do not refactor or clean up code outside the scope of the review comments.
 - Follow the project's conventions as defined in `CLAUDE.md`.

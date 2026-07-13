@@ -30,7 +30,7 @@ Martin will:
 2. Classify each comment as actionable, informational, or already resolved.
 3. Implement code changes for every actionable comment.
 4. Commit and push the fixes to the PR branch.
-5. Reply to every comment directly on the PR — in-thread for inline comments, as a summary comment for top-level reviews — stating whether the change was applied (and how) or not applied (and why).
+5. Reply to every comment **in its own thread** on the PR — right next to the comment it answers — stating whether the change was applied (and how) or not applied (and why). No single "big message" summary is posted at the end of the PR; top-level review remarks with no inline thread are reported back to you for manual handling instead.
 
 ---
 
@@ -40,5 +40,6 @@ Report to the user:
 - A table of comments addressed and changes made.
 - Any comments skipped and why.
 - The commit SHA pushed to the branch.
-- Confirmation that every comment received a reply on GitHub (Martin's output reports N/N replied — flag it to the user if any reply failed).
+- Confirmation that every inline comment received an in-thread reply on GitHub (Martin's output reports N/N replied — flag it to the user if any reply failed).
+- Any "Unanchored review points" Martin reported — top-level review remarks that had no inline thread to reply to and were intentionally not posted on the PR, so the user can decide how to follow up.
 - A reminder to re-request review on GitHub after pushing.
