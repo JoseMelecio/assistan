@@ -57,6 +57,17 @@ Capture Hermes's full markdown output — it becomes the Jira description.
 
 ---
 
+## 4a. RECORD USAGE
+
+1. Locate the usage-tracker script: prefer `${CLAUDE_PLUGIN_ROOT}/scripts/usage-tracker.js`. If `$CLAUDE_PLUGIN_ROOT` is unset or the file doesn't exist there, search the assistant plugin's installation directory (commonly under `~/.claude/plugins/`) for `scripts/usage-tracker.js`. If it still can't be found, skip this step silently.
+2. Run (via Bash):
+   ```
+   node <usage-tracker-path> record $ARGUMENTS assistant:hermes $ARGUMENTS
+   ```
+   This attributes Hermes's token usage and duration to the ticket. It's a no-op if no matching transcript is found — don't treat that as an error.
+
+---
+
 ## 5. CONFIRM WITH USER
 
 Before touching Jira, output:
@@ -74,7 +85,8 @@ Ask: "Shall I update **`$ARGUMENTS`** with this normalized description?" and wai
 Using the connected Atlassian Jira MCP tools available on the main thread:
 
 1. Add a comment to `$ARGUMENTS` containing the **original** description, prefixed with a note that it's being preserved before normalization (traceability — nothing the original author wrote is lost).
-2. Update the issue's description field to Hermes's normalized markdown (as corrected by the user in step 5, if any corrections were given).
+2. If Section 4a ran successfully, run `node <usage-tracker-path> summary $ARGUMENTS --markdown` and append its output to Hermes's normalized markdown (blank line in between) before the next step. Otherwise use Hermes's markdown as-is.
+3. Update the issue's description field to Hermes's normalized markdown (as corrected by the user in step 5, if any corrections were given), plus the appended summary from step 2 if present.
 
 If the Atlassian MCP is not available, output Hermes's full markdown and note:
 `[Jira update skipped — Atlassian MCP not available. Paste this into the ticket manually.]`
@@ -99,7 +111,8 @@ Report to the user:
    URL:  <direct browse link>
    ```
 2. **Normalization Notes** — repeated here for the record, so nothing gets lost if the user scrolls past step 5.
-3. **Next step** — tell the user that once satisfied, they can run:
+3. **Usage so far** (if Section 4a ran) — run `node <usage-tracker-path> summary $ARGUMENTS --plain` and show its output.
+4. **Next step** — tell the user that once satisfied, they can run:
 
    ```
    /assistant:execute-task $ARGUMENTS

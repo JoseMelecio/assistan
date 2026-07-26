@@ -85,6 +85,25 @@ If the Atlassian MCP is not available, output Lisa's full markdown ticket and no
 
 ---
 
+## 5a. RECORD USAGE AND APPEND SUMMARY
+
+Skip this section entirely if the Atlassian MCP was not available in Section 5 (there is no ticket to write to).
+
+1. Locate the usage-tracker script: prefer `${CLAUDE_PLUGIN_ROOT}/scripts/usage-tracker.js`. If `$CLAUDE_PLUGIN_ROOT` is unset or the file doesn't exist there, search the assistant plugin's installation directory (commonly under `~/.claude/plugins/`) for `scripts/usage-tracker.js`. If it still can't be found, skip this whole section silently — never fail the ticket creation over usage tracking.
+2. Run (via Bash):
+   ```
+   node <usage-tracker-path> record <ISSUE-KEY> assistant:lisa
+   ```
+   This attributes Lisa's token usage and duration (just spent authoring the ticket) to the newly created issue. It's a no-op if it can't find a matching transcript — don't treat that as an error.
+3. Run:
+   ```
+   node <usage-tracker-path> summary <ISSUE-KEY> --markdown
+   ```
+   and capture its output.
+4. Using the Atlassian Jira MCP tools, update `<ISSUE-KEY>`'s description to Lisa's original markdown **plus** the captured summary appended at the end (the summary output already starts with its own `## 📊 Resumen de ejecución` heading — just concatenate it after Lisa's content with a blank line in between).
+
+---
+
 ## STOP — HUMAN CHECKPOINT
 
 **Do not continue to planning, implementation, or testing.**
@@ -104,7 +123,8 @@ Report to the user:
    Labels:  <applied labels, or "none">
    ```
 2. **Acceptance criteria summary** — a short bulleted list of the Gherkin scenarios Lisa produced.
-3. **Next step** — tell the user to review and adjust the ticket at the link above, and that when satisfied they can run:
+3. **Usage so far** (if Section 5a ran) — run `node <usage-tracker-path> summary <ISSUE-KEY> --plain` and show its output. Omit this item if Section 5a was skipped.
+4. **Next step** — tell the user to review and adjust the ticket at the link above, and that when satisfied they can run:
 
    ```
    /assistant:execute-task <ISSUE-KEY>

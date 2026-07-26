@@ -87,6 +87,18 @@ Before invoking any agent:
 
 ---
 
+## 4a. START USAGE TRACKING
+
+Capture the pipeline's start time so the final summary can report how long this run took:
+
+```
+PIPELINE_START=$(date +%s)
+```
+
+Also locate the usage-tracker script once and reuse the path for the rest of this command: prefer `${CLAUDE_PLUGIN_ROOT}/scripts/usage-tracker.js`. If `$CLAUDE_PLUGIN_ROOT` is unset or the file doesn't exist there, search the assistant plugin's installation directory (commonly under `~/.claude/plugins/`) for `scripts/usage-tracker.js`. If it can't be found at all, skip every "RECORD USAGE" step below for the rest of this run — usage tracking must never fail or block the pipeline.
+
+---
+
 ## 5. MARK TICKET AS IN PROGRESS
 
 Now that the ticket has been fetched and the worktree is set up, mark the ticket as started **before** invoking any agent, so the board reflects that work is underway. Using the connected Atlassian Jira MCP tools on the main thread:
@@ -112,6 +124,14 @@ Invoke each agent via the Task tool in the order below. Pass the captured output
 
 **Every invocation below must explicitly tell the agent its working directory is `WORKTREE_PATH` (from Section 4)** — e.g. "Your working directory for this task is `<WORKTREE_PATH>`. Resolve all file paths, and run all Bash/git commands, relative to that directory — do not touch the original checkout." Agents do not share process state with the orchestrator, so this must be repeated in every stage's prompt, not assumed from context.
 
+**Every invocation below must also set the Task tool's `description` parameter to start with the ticket id**, e.g. `$ARGUMENTS: Spock implementation planning` — this is how the "RECORD USAGE" steps below find each stage's transcript. A missing or wrong prefix just means that one stage's tokens/cost/duration silently won't be tracked — it never blocks the pipeline.
+
+After **every** Task invocation in this section (including retries), run (if Section 4a found the usage-tracker script):
+```
+node <usage-tracker-path> record $ARGUMENTS assistant:<agent-name> $ARGUMENTS
+```
+replacing `<agent-name>` with the agent just invoked (`spock`, `kirk`, `skinner`, `leela`, `bender`, `smithers`). This is called out explicitly again at the end of each stage below as "**RECORD USAGE**".
+
 ---
 
 ### Stage A — Spock: Implementation planning
@@ -126,6 +146,8 @@ Spock does **not** need to contact Jira — provide the ticket content directly.
 - The acceptance criteria (verbatim from the fetched ticket — this is the contract).
 - The implementation plan.
 
+**RECORD USAGE:** `node <usage-tracker-path> record $ARGUMENTS assistant:spock $ARGUMENTS`
+
 ---
 
 ### Stage B — Kirk: Implementation
@@ -139,6 +161,8 @@ Kirk writes all code changes required to satisfy the acceptance criteria.
 **CAPTURE:**
 - The complete list of files kirk created or modified (needed by skinner, which is read-only and cannot discover changes on its own).
 - A summary of the changes made.
+
+**RECORD USAGE:** `node <usage-tracker-path> record $ARGUMENTS assistant:kirk $ARGUMENTS` — run this after every Kirk invocation, including re-invocations from the Skinner/Bender correction loops below.
 
 ---
 
@@ -159,6 +183,8 @@ The first output line from Skinner must be one of:
 - Re-run Stage C (Skinner) after Kirk responds.
 - This loop counts against the global retry cap (see Section 7).
 
+**RECORD USAGE:** `node <usage-tracker-path> record $ARGUMENTS assistant:skinner $ARGUMENTS` — run this after every Skinner invocation, including re-runs from this loop.
+
 ---
 
 ### Stage D — Leela: Test authoring
@@ -168,6 +194,8 @@ Invoke the `leela` agent with:
 - Kirk's final change summary (from the last Stage B run).
 
 Leela writes tests derived from the acceptance criteria. She does not run the suite.
+
+**RECORD USAGE:** `node <usage-tracker-path> record $ARGUMENTS assistant:leela $ARGUMENTS`
 
 ---
 
@@ -181,6 +209,8 @@ Bender discovers and runs the project's configured lint, static-analysis, and te
 - Hand Bender's error evidence and the failing output back to Kirk (Stage B), along with all previous context.
 - Re-run Stage C (Skinner), Stage D (Leela), and Stage E (Bender) in order, since the code changed.
 - This loop counts against the global retry cap (see Section 7).
+
+**RECORD USAGE:** `node <usage-tracker-path> record $ARGUMENTS assistant:bender $ARGUMENTS` — run this after every Bender invocation, including re-runs from this loop.
 
 ---
 
@@ -204,6 +234,8 @@ Do **not** run `git worktree remove` after this stage. The worktree stays in pla
 **If Smithers does not return a PR URL, stop immediately. Do not proceed to Stage G.**
 
 **CAPTURE:** the PR URL from Smithers.
+
+**RECORD USAGE:** `node <usage-tracker-path> record $ARGUMENTS assistant:smithers $ARGUMENTS`
 
 ---
 
@@ -239,6 +271,23 @@ If the pipeline is still not passing after the 3rd attempt:
 
 ---
 
+## 7a. RECORD PIPELINE DURATION AND UPDATE JIRA SUMMARY
+
+Run this whether the pipeline reached Stage G or hit the retry cap in Section 7 — a partial run still spent time and tokens and should be reflected.
+
+Skip entirely if Section 4a couldn't find the usage-tracker script.
+
+1. Capture the end time and add the wall-clock duration of everything that isn't already attributed to a specific agent stage (orchestration, Jira calls, the human-facing exchanges in between):
+   ```
+   PIPELINE_END=$(date +%s)
+   node <usage-tracker-path> add-duration $ARGUMENTS $((PIPELINE_END-PIPELINE_START)) execute-task
+   ```
+   Note this is the *entire* run's wall time added as overhead on top of the per-stage durations already recorded — the reported total will therefore double-count the agent stages' own time against the overhead bucket. That's expected and fine: the ledger's `duration_seconds` total is meant to read as "how long did this take end to end," not as a precise non-overlapping breakdown.
+2. Run `node <usage-tracker-path> summary $ARGUMENTS --markdown` and capture the output.
+3. Using the Atlassian Jira MCP tools, update `$ARGUMENTS`'s description: replace any existing `## 📊 Resumen de ejecución` section with the freshly captured one (it's the same heading every time, so find-and-replace that section; if the heading isn't present yet, append the section at the end). Never touch the rest of the description. Skip this step if the Atlassian MCP is unavailable.
+
+---
+
 ## 8. PROGRESS REPORTING
 
 Announce each stage as you invoke it. After each agent returns, report its verdict or outcome in one line before continuing.
@@ -257,3 +306,5 @@ PR:          <URL or "not opened">
 Jira start:  transitioned to "En curso" | [skipped]
 Jira end:    transitioned to "Revision" | [skipped]
 ```
+
+If Section 7a ran, follow the block above with the plain-text usage summary (`node <usage-tracker-path> summary $ARGUMENTS --plain`) under a `Usage (accumulated across all runs on this ticket):` heading. Note explicitly that the cost is an estimate, not exact billing.

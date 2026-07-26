@@ -36,6 +36,12 @@ The Gherkin acceptance criteria produced by **Lisa** (or normalized by **Hermes*
 
 ---
 
+## Usage tracking
+
+Every run of `/create-ticket`, `/normalize-ticket`, `/execute-task`, and `/pr-review` leaves a running **"📊 Resumen de ejecución"** section in the ticket's Jira description — time spent, tokens used per stage, and an *estimated* USD cost — and prints the same summary on screen at the end of the run. Later runs on the same ticket add to the totals instead of replacing them. Figures are computed from each agent's own transcript (`scripts/usage-tracker.js`) and cached public pricing, so treat the cost as an estimate, not exact billing.
+
+---
+
 ## Install
 
 ```bash
