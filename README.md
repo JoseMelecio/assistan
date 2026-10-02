@@ -23,14 +23,16 @@ brief.md                       existing Jira ticket (from a teammate / another A
 [skinner]   Reviews the diff (correctness, security, architecture)
    │         ↩ loops back to kirk if CRITICAL/MAJOR findings
    ▼
-[leela]     Writes tests derived from the acceptance criteria
+[leela]     Writes tests derived from the acceptance criteria and runs them
    │
    ▼
 [bender]    Runs all configured quality commands, saves evidence, returns PASS/FAIL
-   │         ↩ loops back to kirk if FAIL
+   │         ↩ loops back to kirk (source failures) or leela (test-only failures)
    ▼
 [smithers]  Commits, pushes, opens the PR, transitions the Jira ticket
 ```
+
+Small, already-diagnosed bugs can skip Spock: `/assistant:execute-task` picks a **fast lane** automatically when the ticket already names the root cause and the fix (force it with `--fast`, or the full pipeline with `--full`).
 
 The Gherkin acceptance criteria produced by **Lisa** (or normalized by **Hermes**, for tickets someone else already wrote) are the **contract** that flows through the whole pipeline: Spock plans against them, Kirk codes to them, Leela derives tests from them, and Bender's gate verifies them.
 
@@ -107,6 +109,14 @@ Each character is a mnemonic for their role's personality:
 ## Project-specific configuration
 
 This plugin is intentionally generic. All project-specific rules — frameworks, domain terms, coding standards, test infrastructure — belong in your project's `CLAUDE.md`. The agents read it automatically. Nothing domain-specific lives in this plugin.
+
+To save Bender from rediscovering your lint/test commands on every run, declare them in `CLAUDE.md`; Bender then runs exactly these, in order:
+
+```markdown
+## Quality gate
+- `vendor/bin/pint --test`
+- `php artisan test tests/Unit`
+```
 
 ---
 

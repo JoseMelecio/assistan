@@ -1,6 +1,6 @@
 ---
-description: Runs the full development pipeline from an existing Jira ticket. Orchestrates spock → kirk → skinner → leela → bender → smithers, using the ticket's acceptance criteria as the contract. Run /create-ticket first to produce the ticket.
-argument-hint: "[TICKET-ID]"
+description: Runs the full development pipeline from an existing Jira ticket. Orchestrates spock → kirk → skinner → leela → bender → smithers (or a fast lane without spock for small, already-diagnosed bugs), using the ticket's acceptance criteria as the contract. Run /create-ticket first to produce the ticket.
+argument-hint: "[--fast|--full] [TICKET-ID]"
 ---
 
 # execute-task
@@ -10,7 +10,9 @@ Run the full development pipeline for an existing Jira ticket.
 ## Usage
 
 ```
-/assistant:execute-task DEV-12
+/assistant:execute-task DEV-12            # lane chosen automatically (Section 4b)
+/assistant:execute-task --fast DEV-12     # force the fast lane
+/assistant:execute-task --full DEV-12     # force the full lane
 ```
 
 Each run works in its own isolated `git worktree` (see Section 4), so it's safe to invoke this command for several tickets back to back or in parallel — each pipeline gets its own directory and branch and cannot clobber another run's files or checked-out branch.
@@ -19,9 +21,12 @@ Each run works in its own isolated `git worktree` (see Section 4), so it's safe 
 
 ## 1. PURPOSE & INPUT
 
-The ticket identifier is: **$ARGUMENTS**
+Parse `$ARGUMENTS` before doing anything else:
 
-If `$ARGUMENTS` is empty, ask the user to supply a Jira ticket identifier before proceeding.
+- An optional lane flag, `--fast` or `--full` (see Section 4b). Remove it from the text.
+- The remaining text is the ticket identifier — call it **TICKET_ID** (e.g. `DEV-12`). Every later reference to `TICKET_ID` means this value, never the raw arguments.
+
+If no ticket identifier remains, ask the user to supply one before proceeding.
 
 ---
 
@@ -31,17 +36,17 @@ Before fetching anything from Jira, check whether this repo restricts which Jira
 
 1. Read the project's `CLAUDE.md` and look for a line that declares the Jira project (e.g. `Jira project key: MM`, `jira_project: MM`, or similar wording).
 2. If no such line exists, this repo is unrestricted — skip validation and continue to Section 3.
-3. If a project key **is** declared, extract the project prefix from `$ARGUMENTS` (the text before the first `-`, e.g. `MM-42` → `MM`).
+3. If a project key **is** declared, extract the project prefix from `TICKET_ID` (the text before the first `-`, e.g. `MM-42` → `MM`).
 4. Compare the two case-insensitively.
    - **Match** — continue to Section 3.
    - **No match** — stop immediately, do not contact Jira, and tell the user:
-     > This repo is restricted to Jira project `<declared-key>` (per `CLAUDE.md`). `$ARGUMENTS` belongs to a different project and will not be processed. Re-run with a `<declared-key>-*` ticket.
+     > This repo is restricted to Jira project `<declared-key>` (per `CLAUDE.md`). `TICKET_ID` belongs to a different project and will not be processed. Re-run with a `<declared-key>-*` ticket.
 
 ---
 
 ## 3. FETCH TICKET FROM JIRA
 
-Using the connected Atlassian Jira MCP tools available on the main thread, fetch the live ticket for `$ARGUMENTS`. Extract:
+Using the connected Atlassian Jira MCP tools available on the main thread, fetch the live ticket for `TICKET_ID`. Extract:
 
 - **Title** (summary field)
 - **Description** (full body)
@@ -99,11 +104,31 @@ Also locate the usage-tracker script once and reuse the path for the rest of thi
 
 ---
 
+## 4b. CHOOSE THE LANE
+
+The full six-stage pipeline is worth its cost on feature work, but on a small, already-diagnosed bug most of its tokens go to re-deriving what the ticket already says. Pick a lane before invoking any agent:
+
+- `--fast` or `--full` in the arguments wins.
+- Otherwise use the **fast lane** only when **all** of these hold for the fetched ticket:
+  1. It names the root cause **and** the concrete fix (typically under "Technical Notes" or similar).
+  2. The fix touches the files the ticket names, roughly three source files or fewer.
+  3. It adds no migrations, new routes/endpoints, new dependencies, or new public interfaces.
+- In any other case, or if you are unsure, use the **full lane**.
+
+| Lane | Stages |
+|---|---|
+| full | Spock → Kirk → Skinner → Leela → Bender → Smithers |
+| fast | (no Spock) Kirk → Skinner → Leela → Bender → Smithers |
+
+In the fast lane, Stage A is skipped (see Stage A). Report the chosen lane, and the reason, together with the setup report from Section 4.
+
+---
+
 ## 5. MARK TICKET AS IN PROGRESS
 
 Now that the ticket has been fetched and the worktree is set up, mark the ticket as started **before** invoking any agent, so the board reflects that work is underway. Using the connected Atlassian Jira MCP tools on the main thread:
 
-1. Look up the valid workflow transitions for `$ARGUMENTS`.
+1. Look up the valid workflow transitions for `TICKET_ID`.
 2. Select the transition whose name most closely matches "En curso" (case-insensitive; exact match preferred; common English equivalents such as "In Progress" are acceptable fallbacks if no "En curso" transition exists).
 3. Apply that transition to the issue.
 
@@ -113,7 +138,7 @@ Handle the outcome gracefully — a failure here must **not** abort the pipeline
 - If the Atlassian MCP is unavailable at this point, print the following and continue:
   ```
   [Jira transition skipped — Atlassian MCP not available]
-  Would transition: $ARGUMENTS → "En curso"
+  Would transition: TICKET_ID → "En curso"
   ```
 
 ---
@@ -124,11 +149,11 @@ Invoke each agent via the Task tool in the order below. Pass the captured output
 
 **Every invocation below must explicitly tell the agent its working directory is `WORKTREE_PATH` (from Section 4)** — e.g. "Your working directory for this task is `<WORKTREE_PATH>`. Resolve all file paths, and run all Bash/git commands, relative to that directory — do not touch the original checkout." Agents do not share process state with the orchestrator, so this must be repeated in every stage's prompt, not assumed from context.
 
-**Every invocation below must also set the Task tool's `description` parameter to start with the ticket id**, e.g. `$ARGUMENTS: Spock implementation planning` — this is how the "RECORD USAGE" steps below find each stage's transcript. A missing or wrong prefix just means that one stage's tokens/cost/duration silently won't be tracked — it never blocks the pipeline.
+**Every invocation below must also set the Task tool's `description` parameter to start with the ticket id**, e.g. `TICKET_ID: Spock implementation planning` — this is how the "RECORD USAGE" steps below find each stage's transcript. A missing or wrong prefix just means that one stage's tokens/cost/duration silently won't be tracked — it never blocks the pipeline.
 
 After **every** Task invocation in this section (including retries), run (if Section 4a found the usage-tracker script):
 ```
-node <usage-tracker-path> record $ARGUMENTS assistant:<agent-name> $ARGUMENTS
+node <usage-tracker-path> record TICKET_ID assistant:<agent-name> TICKET_ID
 ```
 replacing `<agent-name>` with the agent just invoked (`spock`, `kirk`, `skinner`, `leela`, `bender`, `smithers`). This is called out explicitly again at the end of each stage below as "**RECORD USAGE**".
 
@@ -142,11 +167,13 @@ Invoke the `spock` agent with:
 
 Spock does **not** need to contact Jira — provide the ticket content directly.
 
+**Fast lane:** do not invoke Spock. Instead, build the implementation plan yourself from the ticket's own root-cause and fix notes: a short ordered list of the files to change and what to change in each, mapped to the acceptance criteria. Pass that as "the implementation plan" to the following stages. Skip Spock's RECORD USAGE step.
+
 **CAPTURE:**
 - The acceptance criteria (verbatim from the fetched ticket — this is the contract).
 - The implementation plan.
 
-**RECORD USAGE:** `node <usage-tracker-path> record $ARGUMENTS assistant:spock $ARGUMENTS`
+**RECORD USAGE:** `node <usage-tracker-path> record TICKET_ID assistant:spock TICKET_ID`
 
 ---
 
@@ -162,7 +189,7 @@ Kirk writes all code changes required to satisfy the acceptance criteria.
 - The complete list of files kirk created or modified (needed by skinner, which is read-only and cannot discover changes on its own).
 - A summary of the changes made.
 
-**RECORD USAGE:** `node <usage-tracker-path> record $ARGUMENTS assistant:kirk $ARGUMENTS` — run this after every Kirk invocation, including re-invocations from the Skinner/Bender correction loops below.
+**RECORD USAGE:** `node <usage-tracker-path> record TICKET_ID assistant:kirk TICKET_ID` — run this after every Kirk invocation, including re-invocations from the Skinner, Leela-discrepancy, and Bender correction loops below.
 
 ---
 
@@ -183,7 +210,7 @@ The first output line from Skinner must be one of:
 - Re-run Stage C (Skinner) after Kirk responds.
 - This loop counts against the global retry cap (see Section 7).
 
-**RECORD USAGE:** `node <usage-tracker-path> record $ARGUMENTS assistant:skinner $ARGUMENTS` — run this after every Skinner invocation, including re-runs from this loop.
+**RECORD USAGE:** `node <usage-tracker-path> record TICKET_ID assistant:skinner TICKET_ID` — run this after every Skinner invocation, including re-runs from this loop.
 
 ---
 
@@ -193,24 +220,33 @@ Invoke the `leela` agent with:
 - The acceptance criteria (from Stage A — the criteria are the source of truth, NOT Kirk's implementation).
 - Kirk's final change summary (from the last Stage B run).
 
-Leela writes tests derived from the acceptance criteria. She does not run the suite.
+Leela writes tests derived from the acceptance criteria, then runs **only the test files she touched** and fixes her own test mistakes before handing off. She does not run the full suite — that stays with Bender.
 
-**RECORD USAGE:** `node <usage-tracker-path> record $ARGUMENTS assistant:leela $ARGUMENTS`
+**CAPTURE:** the list of test files Leela created or modified, and her "Test run" result. If she reports implementation discrepancies (tests written to the criteria that fail against the code), treat that like a Skinner `CHANGES REQUESTED`: hand the discrepancies to Kirk (Stage B), then re-run Stage C and continue. This counts against the retry cap (Section 7).
+
+**RECORD USAGE:** `node <usage-tracker-path> record TICKET_ID assistant:leela TICKET_ID` — run this after every Leela invocation, including re-runs from the Bender → Leela loop below.
 
 ---
 
 ### Stage E — Bender: Quality gate
 
-Invoke the `bender` agent.
+Invoke the `bender` agent. If the project's `CLAUDE.md` has a `## Quality gate` section, pass Bender those exact commands so it does not spend tokens rediscovering them.
 
-Bender discovers and runs the project's configured lint, static-analysis, and test commands. It saves all output as evidence and returns `PASS` or `FAIL`.
+Bender runs the project's lint, static-analysis, and test commands. It saves all output as evidence and returns `PASS` or `FAIL`.
 
-**If `FAIL`:**
-- Hand Bender's error evidence and the failing output back to Kirk (Stage B), along with all previous context.
-- Re-run Stage C (Skinner), Stage D (Leela), and Stage E (Bender) in order, since the code changed.
-- This loop counts against the global retry cap (see Section 7).
+**If `FAIL`:** route the fix to whoever owns the failing files, and re-run only what that fix can affect.
 
-**RECORD USAGE:** `node <usage-tracker-path> record $ARGUMENTS assistant:bender $ARGUMENTS` — run this after every Bender invocation, including re-runs from this loop.
+- **Failures only in test files** (a failing test caused by its own fixture or setup, lint on a test file, a test that only fails in isolation):
+  - Hand Bender's evidence to Leela (Stage D) with the instruction to fix those test files only.
+  - Then re-run Stage E (Bender). Do not re-run Skinner: no source file changed.
+- **Failures in source files**, or a test failing because the implementation does not meet a criterion:
+  - Hand Bender's evidence to Kirk (Stage B), along with all previous context.
+  - Re-run Stage C (Skinner).
+  - Re-run Stage D (Leela) **only if** Kirk changed behaviour the tests cover. If Leela only needs to confirm that the existing tests still cover the criteria, invoke her with the Task tool's model override set to `haiku`.
+  - Then re-run Stage E (Bender).
+- Either path counts against the global retry cap (see Section 7).
+
+**RECORD USAGE:** `node <usage-tracker-path> record TICKET_ID assistant:bender TICKET_ID` — run this after every Bender invocation, including re-runs from this loop.
 
 ---
 
@@ -235,7 +271,7 @@ Do **not** run `git worktree remove` after this stage. The worktree stays in pla
 
 **CAPTURE:** the PR URL from Smithers.
 
-**RECORD USAGE:** `node <usage-tracker-path> record $ARGUMENTS assistant:smithers $ARGUMENTS`
+**RECORD USAGE:** `node <usage-tracker-path> record TICKET_ID assistant:smithers TICKET_ID`
 
 ---
 
@@ -243,21 +279,21 @@ Do **not** run `git worktree remove` after this stage. The worktree stays in pla
 
 After Smithers returns a PR URL, using the connected Atlassian Jira MCP tools on the main thread:
 
-1. Look up the valid workflow transitions for `$ARGUMENTS`.
+1. Look up the valid workflow transitions for `TICKET_ID`.
 2. Select the transition whose name most closely matches "Revision" (case-insensitive; exact match preferred).
 3. Apply that transition to the issue.
 
 If the transition succeeds, record the result. If the Atlassian MCP is unavailable at this point, print:
 ```
 [Jira transition skipped — Atlassian MCP not available]
-Would transition: $ARGUMENTS → "Revision"
+Would transition: TICKET_ID → "Revision"
 ```
 
 ---
 
 ## 7. CORRECTION LOOPS & RETRY CAP
 
-Both correction loops (Skinner → Kirk and Bender → Kirk) share a **maximum of 3 correction attempts total** across the entire pipeline run.
+All correction loops (Skinner → Kirk, Leela discrepancies → Kirk, Bender → Kirk, Bender → Leela) share a **maximum of 3 correction attempts total** across the entire pipeline run.
 
 If the pipeline is still not passing after the 3rd attempt:
 - **Do not open a PR.**
@@ -280,11 +316,11 @@ Skip entirely if Section 4a couldn't find the usage-tracker script.
 1. Capture the end time and add the wall-clock duration of everything that isn't already attributed to a specific agent stage (orchestration, Jira calls, the human-facing exchanges in between):
    ```
    PIPELINE_END=$(date +%s)
-   node <usage-tracker-path> add-duration $ARGUMENTS $((PIPELINE_END-PIPELINE_START)) execute-task
+   node <usage-tracker-path> add-duration TICKET_ID $((PIPELINE_END-PIPELINE_START)) execute-task
    ```
    Note this is the *entire* run's wall time added as overhead on top of the per-stage durations already recorded — the reported total will therefore double-count the agent stages' own time against the overhead bucket. That's expected and fine: the ledger's `duration_seconds` total is meant to read as "how long did this take end to end," not as a precise non-overlapping breakdown.
-2. Run `node <usage-tracker-path> summary $ARGUMENTS --markdown` and capture the output.
-3. Using the Atlassian Jira MCP tools, update `$ARGUMENTS`'s description: replace any existing `## 📊 Resumen de ejecución` section with the freshly captured one (it's the same heading every time, so find-and-replace that section; if the heading isn't present yet, append the section at the end). Never touch the rest of the description. Skip this step if the Atlassian MCP is unavailable.
+2. Run `node <usage-tracker-path> summary TICKET_ID --markdown` and capture the output.
+3. Using the Atlassian Jira MCP tools, update `TICKET_ID`'s description: replace any existing `## 📊 Resumen de ejecución` section with the freshly captured one (it's the same heading every time, so find-and-replace that section; if the heading isn't present yet, append the section at the end). Never touch the rest of the description. Skip this step if the Atlassian MCP is unavailable.
 
 ---
 
@@ -295,7 +331,8 @@ Announce each stage as you invoke it. After each agent returns, report its verdi
 **Final summary (after Stage G or on hard stop):**
 
 ```
-Ticket:      $ARGUMENTS
+Ticket:      TICKET_ID
+Lane:        fast | full (<reason>)
 Base branch: <base-branch>
 Branch:      feature/<ticket-id>  →  <base-branch>
 Worktree:    <WORKTREE_PATH> (left in place — safe to remove after the PR merges)
@@ -307,4 +344,4 @@ Jira start:  transitioned to "En curso" | [skipped]
 Jira end:    transitioned to "Revision" | [skipped]
 ```
 
-If Section 7a ran, follow the block above with the plain-text usage summary (`node <usage-tracker-path> summary $ARGUMENTS --plain`) under a `Usage (accumulated across all runs on this ticket):` heading. Note explicitly that the cost is an estimate, not exact billing.
+If Section 7a ran, follow the block above with the plain-text usage summary (`node <usage-tracker-path> summary TICKET_ID --plain`) under a `Usage (accumulated across all runs on this ticket):` heading. Note explicitly that the cost is an estimate, not exact billing.

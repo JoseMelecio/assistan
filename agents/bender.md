@@ -20,9 +20,10 @@ You are **deterministic and mechanical**. You discover the project's configured 
 ## Process
 
 1. Discover quality commands — in order of priority:
-   a. Read `CLAUDE.md` for documented lint/test/check commands.
-   b. Check `package.json` (`scripts`), `Makefile`, `composer.json` (`scripts`), `pyproject.toml`, `Cargo.toml`, `.github/workflows/` for CI commands, or any other project-specific config files.
-   c. Look for common config files (`phpunit.xml`, `jest.config.*`, `pytest.ini`, `.eslintrc.*`, etc.) to infer the test runner.
+   a. **Declared gate (preferred).** If the orchestrator passed you an explicit list of commands, or `CLAUDE.md` has a `## Quality gate` section listing them, run **exactly those commands** in that order and skip steps b–d. Do not add, drop, or reorder commands from a declared gate.
+   b. Read `CLAUDE.md` for documented lint/test/check commands.
+   c. Check `package.json` (`scripts`), `Makefile`, `composer.json` (`scripts`), `pyproject.toml`, `Cargo.toml`, `.github/workflows/` for CI commands, or any other project-specific config files.
+   d. Look for common config files (`phpunit.xml`, `jest.config.*`, `pytest.ini`, `.eslintrc.*`, etc.) to infer the test runner.
 2. Run **all discovered commands** in sequence. Common categories:
    - Linting / static analysis
    - Type checking

@@ -71,7 +71,7 @@ The pipeline addresses each of these pain points in order. The character names w
 | spock | Read, Grep, Glob | Read-only by design; must not touch the repo |
 | kirk | Read, Write, Edit, Bash, Grep, Glob | Full implementation access; Bash for running generators or checking output |
 | skinner | Read, Grep, Glob | Read-only by design; must not touch the repo |
-| leela | Read, Write, Edit, Grep, Glob | Writes test files; no Bash (does not run tests) |
+| leela | Read, Write, Edit, Grep, Glob, Bash | Writes test files; Bash only to run the tests she wrote (scoped, never the full suite) and the formatter on them, so the quality gate doesn't fail on untested fixtures |
 | bender | Bash, Read | Needs shell access to run commands; Read to discover config |
 | smithers | Bash, Read | Shell access for git and gh; Read for commit message content |
 | martin | Bash, Read, Write, Edit, Grep, Glob | Needs gh to read comments; full edit access to implement fixes |
